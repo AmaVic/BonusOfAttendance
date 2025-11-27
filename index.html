@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POAP Bonus Checker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+</head>
+
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="container">
+        <div class="card glass-panel">
+            <header>
+                <h1>POAP Bonus Checker</h1>
+                <p class="subtitle">Check your eligibility for bonus points based on your POAP collection.</p>
+            </header>
+
+            <section class="input-section">
+                <div class="input-group">
+                    <input type="text" id="walletAddress" placeholder="Enter your Ethereum Address (0x...)"
+                        autocomplete="off">
+                    <button id="checkButton" class="btn-primary">
+                        <span class="btn-text">Check Eligibility</span>
+                        <div class="loader hidden"></div>
+                    </button>
+                </div>
+                <p id="error-message" class="error-text hidden"></p>
+            </section>
+
+            <section id="results-section" class="results-section hidden">
+                <div class="score-card">
+                    <span class="label">Total Bonus Points</span>
+                    <h2 id="totalPoints" class="score-value">0</h2>
+                </div>
+
+                <div class="details-list">
+                    <h3>Collected POAPs</h3>
+                    <ul id="poapList" class="poap-list">
+                        <!-- POAP items will be injected here -->
+                    </ul>
+                    <p id="no-poaps-msg" class="empty-state hidden">No matching POAPs found for this address.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
