@@ -1,6 +1,7 @@
 // DOM Elements
 const walletInput = document.getElementById('walletAddress');
 const checkButton = document.getElementById('checkButton');
+const exampleButton = document.getElementById('exampleButton');
 const btnText = document.querySelector('.btn-text');
 const loader = document.querySelector('.loader');
 const errorMessage = document.getElementById('error-message');
@@ -12,6 +13,12 @@ const noPoapsMsg = document.getElementById('no-poaps-msg');
 
 // Event Listeners
 checkButton.addEventListener('click', handleCheck);
+exampleButton.addEventListener('click', () => {
+    walletInput.value = '0x460e2b4ee99d882eccf1b476d418b1ecf06e67f1';
+    handleCheck();
+    exampleButton.classList.add('hidden');
+
+});
 walletInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleCheck();
 });
