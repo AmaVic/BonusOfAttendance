@@ -126,6 +126,34 @@ h1 {
     line-height: 1.5;
 }
 
+.unamur-link {
+    color: var(--text-color);
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 255, 255, 0.3);
+    text-underline-offset: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.unamur-link:hover {
+    color: var(--primary-color);
+    text-decoration-color: var(--primary-color);
+}
+
+.inline-logo {
+    height: 20px;
+    width: auto;
+    vertical-align: middle;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.unamur-link:hover .inline-logo {
+    opacity: 1;
+}
+
 /* Input Section */
 .input-section {
     display: flex;
