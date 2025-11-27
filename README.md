@@ -1,5 +1,5 @@
 # Bonus of Attendance
-A simple web application enabling students from the Blockchain Technology course of the University of Namur to check the bonus points they have earned by attending specific events.
+A simple web application enabling students from the [Blockchain Technology course of the University of Namur](https://www.unamur.be/en/blockchain-technology) to check the bonus points they have earned by attending specific events.
 
 The attendance is tracked through the Proof of Attendance Protocol (POAP).
 
@@ -25,7 +25,3 @@ The configuration is stored in the `config.js` file. It contains the following c
 - `SPECIAL_RULES`: The special rules for the calculation of bonus points.
 
 You can open the `config.js` file to see how the web application is currently configured.
-
-
-
-
