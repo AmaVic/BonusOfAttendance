@@ -1,5 +1,5 @@
-// Configuration
-const TARGET_EVENT_IDS = [210723, 214291];
+// Configuration (POAP events are now in config.js)
+const TARGET_EVENT_IDS = POAP_CONFIG.events.map(e => e.id);
 const POAP_CONTRACT_ADDRESS = "0x22C1f6050E56d2876009903609a2cC3fEf83B415";
 
 // RPC Endpoints (Public with Fallbacks)
@@ -7,12 +7,21 @@ const RPC_CONFIG = {
     gnosis: [
         "https://rpc.gnosischain.com",
         "https://gnosis.publicnode.com",
-        "https://rpc.ankr.com/gnosis"
+        "https://rpc.ankr.com/gnosis",
+        "https://gnosis-rpc.publicnode.com",
+        "https://1rpc.io/gnosis"
     ],
     base: [
         "https://mainnet.base.org",
         "https://base.publicnode.com",
-        "https://base.meowrpc.com"
+        "https://base.meowrpc.com",
+        "https://base-rpc.publicnode.com",
+        "https://1rpc.io/base",
+        "https://base.drpc.org",
+        "https://base.gateway.tenderly.co",
+        "https://rpc.notadegen.com/base",
+        "https://base.blockpi.network/v1/rpc/public",
+        "https://base-pokt.nodies.app"
     ]
 };
 
@@ -29,6 +38,7 @@ const checkButton = document.getElementById('checkButton');
 const btnText = document.querySelector('.btn-text');
 const loader = document.querySelector('.loader');
 const errorMessage = document.getElementById('error-message');
+const statusMessage = document.getElementById('status-message');
 const resultsSection = document.getElementById('results-section');
 const totalPointsEl = document.getElementById('totalPoints');
 const poapListEl = document.getElementById('poapList');
@@ -68,39 +78,54 @@ async function handleCheck() {
 async function checkAllNetworks(address) {
     const networks = ['gnosis', 'base'];
     const results = [];
+    const maxRetries = 2; // Auto-retry failed networks
 
     console.log("Starting check for address:", address);
 
     // Check both networks in parallel
     const promises = networks.map(async (networkName) => {
+        showStatus(`Connecting to ${networkName.charAt(0).toUpperCase() + networkName.slice(1)} network...`);
         console.log(`Checking network: ${networkName}`);
 
-        // Try RPCs in order until one works
+        // Try RPCs in order until one works, with retries
         const urls = RPC_CONFIG[networkName];
-        for (const url of urls) {
-            try {
-                console.log(`[${networkName}] Trying RPC: ${url}`);
-                const provider = new ethers.JsonRpcProvider(url);
+        let lastError = null;
 
-                // Test connection briefly
-                await provider.getNetwork();
+        for (let retry = 0; retry < maxRetries; retry++) {
+            for (const url of urls) {
+                try {
+                    console.log(`[${networkName}] Attempt ${retry + 1}/${maxRetries}, RPC: ${url}`);
+                    const provider = new ethers.JsonRpcProvider(url);
 
-                // Add a timeout race for the actual check
-                const result = await Promise.race([
-                    checkNetworkForPOAPs(provider, address, networkName),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 20000))
-                ]);
+                    // Test connection briefly
+                    await provider.getNetwork();
 
-                console.log(`Result for ${networkName}:`, result);
-                return result; // Success, return results
-            } catch (e) {
-                console.warn(`[${networkName}] RPC ${url} failed or timed out:`, e);
-                // Continue to next URL
+                    showStatus(`Fetching POAPs from ${networkName.charAt(0).toUpperCase() + networkName.slice(1)}...`);
+
+                    // Add a timeout race for the actual check
+                    const result = await Promise.race([
+                        checkNetworkForPOAPs(provider, address, networkName),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 20000))
+                    ]);
+
+                    console.log(`Result for ${networkName}:`, result);
+                    return result; // Success, return results
+                } catch (e) {
+                    lastError = e;
+                    console.warn(`[${networkName}] RPC ${url} failed or timed out:`, e);
+                    // Continue to next URL
+                }
+            }
+
+            // If we've tried all URLs and still failed, wait a bit before retrying
+            if (retry < maxRetries - 1) {
+                showStatus(`Retrying ${networkName.charAt(0).toUpperCase() + networkName.slice(1)} network...`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 
-        console.error(`[${networkName}] All RPCs failed.`);
-        showError(`Could not connect to ${networkName} network. Some results may be missing.`);
+        console.error(`[${networkName}] All RPCs failed after ${maxRetries} attempts.`);
+        showError(`Could not connect to ${networkName} network after ${maxRetries} attempts. Some results may be missing.`);
         return [];
     });
 
@@ -108,6 +133,10 @@ async function checkAllNetworks(address) {
 
     // Flatten results
     networkResults.forEach(res => results.push(...res));
+
+    if (results.length > 0) {
+        showStatus('Fetching event details...');
+    }
 
     console.log("All results:", results);
     return results;
@@ -197,15 +226,28 @@ async function getTokensFromLogs(provider, address) {
     }
 }
 
-function displayResults(foundPoaps) {
+// Fetch event name from POAP API
+async function fetchEventName(eventId) {
+    try {
+        const response = await fetch(`https://api.poap.tech/events/id/${eventId}`);
+        if (response.ok) {
+            const data = await response.json();
+            return data.name || `Event #${eventId}`;
+        }
+    } catch (error) {
+        console.warn(`Failed to fetch name for event ${eventId}:`, error);
+    }
+    return null; // Will fall back to config name
+}
+
+async function displayResults(foundPoaps) {
     resultsSection.classList.remove('hidden');
 
-    // Calculate Score
-    // "0.33 / collected POAP"
-    // Special rule: 3 POAPs = 1 point (instead of 0.99)
-    let finalScore = foundPoaps.length * 0.33;
-    if (foundPoaps.length === 3) {
-        finalScore = 1;
+    // Calculate Score using config
+    showStatus('Calculating bonus points...');
+    let finalScore = foundPoaps.length * POAP_CONFIG.pointsPerPoap;
+    if (foundPoaps.length === POAP_CONFIG.specialRules.exactCount) {
+        finalScore = POAP_CONFIG.specialRules.points;
     }
 
     // Animate Score
@@ -216,29 +258,46 @@ function displayResults(foundPoaps) {
 
     if (foundPoaps.length === 0) {
         noPoapsMsg.classList.remove('hidden');
+        statusMessage.classList.add('hidden');
     } else {
         noPoapsMsg.classList.add('hidden');
-        foundPoaps.forEach(item => {
+
+        // Fetch all event names in parallel first (with config fallback)
+        showStatus(`Fetching event details (${foundPoaps.length} POAPs)...`);
+        const namePromises = foundPoaps.map(async item => {
+            // Try to get name from config first
+            const configEvent = POAP_CONFIG.events.find(e => e.id === item.eventId);
+            if (configEvent?.name) {
+                return configEvent.name;
+            }
+            // Fallback to API
+            return await fetchEventName(item.eventId);
+        });
+        const names = await Promise.all(namePromises);
+
+        // Now display all POAPs with their fetched names
+        foundPoaps.forEach((item, index) => {
             const { eventId, tokenId } = item;
             const li = document.createElement('li');
             li.className = 'poap-item';
 
-            // Map ID to Name
-            let name = "Unknown Event";
-            if (eventId === 210723) name = "Intervention @ UNamur";
-            if (eventId === 214291) name = "Stablecoins et Monnaie Programmable";
+            // Use fetched name or fallback
+            const name = names[index] || `Event #${eventId}`;
 
             const link = `https://collectors.poap.xyz/token/${tokenId}`;
 
             li.innerHTML = `
                 <div class="poap-info">
-                    <a href="${link}" target="_blank" class="poap-name-link">${name} <span class="external-icon">↗</span></a>
+                    <a href="${link}" target="_blank" class="poap-name-link"><span class="poap-name">${name}</span> <span class="external-icon">↗</span></a>
                     <span class="poap-id">#${eventId}</span>
                 </div>
-                <span class="poap-points">0.33 pts</span>
+                <span class="poap-points">${POAP_CONFIG.pointsPerPoap} pts</span>
             `;
             poapListEl.appendChild(li);
         });
+
+        // Hide status message when done
+        statusMessage.classList.add('hidden');
     }
 }
 
@@ -260,8 +319,14 @@ function showError(msg) {
     errorMessage.classList.remove('hidden');
 }
 
+function showStatus(msg) {
+    statusMessage.textContent = msg;
+    statusMessage.classList.remove('hidden');
+}
+
 function resetUI() {
     errorMessage.classList.add('hidden');
+    statusMessage.classList.add('hidden');
     resultsSection.classList.add('hidden');
     poapListEl.innerHTML = '';
     totalPointsEl.textContent = '0';
